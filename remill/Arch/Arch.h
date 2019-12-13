@@ -29,9 +29,12 @@
 struct ArchState;
 
 namespace llvm {
+class LLVMContext;
 class Module;
 class BasicBlock;
 class Function;
+class GetElementPtrInst;
+class Instruction;
 }  // namespace llvm.
 namespace remill {
 
@@ -49,8 +52,35 @@ struct Register {
   std::string name;  // Name of the register.
   uint64_t offset;  // Byte offset in `State`.
   uint64_t size;  // Size of this register.
-  uint64_t order;  // Order of appears in `__remill_basic_block`.
-  llvm::Type *type;  // LLVM type associated with the field in `State`.
+
+  // How many indexes/casts it takes to get at this register withing the
+  // original bitcode of `__remill_basic_block`. This is a useful metric
+  // when trying to decide is something is a sub-register of another. For
+  // example, `Q0` is a sub register of `V0` on AArch64, even though they
+  // are the same size. The complexity allows us to see that it "takes more"
+  // to index into `Q0` than it does for `V0`, and thus `Q0` is a sub-register.
+  unsigned complexity;
+
+  // LLVM type associated with the field in `State`.
+  llvm::Type *type;
+
+  // A pre-computed index list and type for creating pointers to this register
+  // given a `State` structure pointer.
+  std::vector<llvm::Value *> gep_index_list;
+
+  // The offset in `State` nearest to `offset`. You can say that
+  // the `sizeof(gep_type_at_offset)` starting at `gep_offset` in the `State`
+  // structure fully enclose this register. The following invariant holds:
+  //
+  //    gep_offset
+  //        <= offset
+  //            <= offset + sizeof(type)
+  //                <= gep_offset + sizeof(gep_type_at_offset)
+  size_t gep_offset{0};
+
+  // This may be different than `type`. If so, then a bitcast on a
+  // `getelementptr` produced using `gep_index_list` to a `type*` is needed.
+  llvm::Type *gep_type_at_offset{nullptr};
 
   // Returns the enclosing register of size AT LEAST `size`, or `nullptr`.
   const Register *EnclosingRegisterOfSize(uint64_t size) const;
@@ -58,10 +88,23 @@ struct Register {
   // Returns the largest enclosing register containing the current register.
   const Register *EnclosingRegister(void) const;
 
+  // Returns the list of directly enclosed registers. For example,
+  // `RAX` will directly enclose `EAX` but nothing else. `AX` will directly
+  // enclose `AH` and `AL`.
+  const std::vector<const Register *> &EnclosedRegisters(void) const;
+
+  // Generate an instruction that will let us load/store to this register, given
+  // a `State *`.
+  llvm::Instruction *AddressOf(
+      llvm::Value *state_ptr, llvm::BasicBlock *add_to_end) const;
+
  private:
   friend class Arch;
 
-  const Register * parent;
+  const Register * parent{nullptr};
+
+  // The directly enclosed registers.
+  std::vector<const Register *> children;
 };
 
 class Arch {
@@ -70,7 +113,9 @@ class Arch {
 
   // Factory method for loading the correct architecture class for a given
   // operating system and architecture class.
-  static const Arch *Get(OSName os, ArchName arch_name);
+  //
+  // TODO(pag): Refactor to also take in an `llvm::LLVMContext &`.
+  static const Arch *Get(llvm::LLVMContext &context, OSName os, ArchName arch_name);
 
   // Return information about the register at offset `offset` in the `State`
   // structure.
@@ -78,6 +123,12 @@ class Arch {
 
   // Return information about a register, given its name.
   const Register *RegisterByName(const std::string &name) const;
+
+  // Returns the name of the stack pointer register.
+  virtual const char *StackPointerRegisterName(void) const = 0;
+
+  // Returns the name of the program counter register.
+  virtual const char *ProgramCounterRegisterName(void) const = 0;
 
   // Converts an LLVM module object to have the right triple / data layout
   // information for the target architecture and ensures remill requied functions
@@ -124,6 +175,7 @@ class Arch {
   const OSName os_name;
   const ArchName arch_name;
   const uint64_t address_size;
+  llvm::LLVMContext * const context;
 
   bool IsX86(void) const;
   bool IsAMD64(void) const;
@@ -134,19 +186,22 @@ class Arch {
   bool IsMacOS(void) const;
 
  protected:
-  Arch(OSName os_name_, ArchName arch_name_);
+  Arch(llvm::LLVMContext &context_, OSName os_name_, ArchName arch_name_);
 
   llvm::Triple BasicTriple(void) const;
 
  private:
   // Defined in `remill/Arch/X86/Arch.cpp`.
-  static const Arch *GetX86(OSName os, ArchName arch_name);
+  static const Arch *GetX86(
+      llvm::LLVMContext &context, OSName os, ArchName arch_name);
 
   // Defined in `remill/Arch/Mips/Arch.cpp`.
-  static const Arch *GetMips(OSName os, ArchName arch_name);
+  static const Arch *GetMips(
+      llvm::LLVMContext &context, OSName os, ArchName arch_name);
 
   // Defined in `remill/Arch/AArch64/Arch.cpp`.
-  static const Arch *GetAArch64(OSName os, ArchName arch_name);
+  static const Arch *GetAArch64(
+      llvm::LLVMContext &context, OSName os, ArchName arch_name);
 
   // Get all of the register information from the prepared module.
   void CollectRegisters(llvm::Module *module) const;
@@ -160,10 +215,10 @@ class Arch {
 
 // Get the (approximate) architecture of the running system. This may not
 // include all feature sets.
-const Arch *GetHostArch(void);
+const Arch *GetHostArch(llvm::LLVMContext &context);
 
 // Get the architecture of the modelled code. This is based on command-line
 // flags.
-const Arch *GetTargetArch(void);
+const Arch *GetTargetArch(llvm::LLVMContext &context);
 
 }  // namespace remill

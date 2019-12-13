@@ -34,6 +34,27 @@ DEF_SEM(XCHG, D1 dst, S1 dst_val, D2 src, S2 src_val) {
 }
 
 template <typename D, typename S>
+DEF_SEM(MOVBE16, D dst, const S src) {
+  WriteZExt(dst, __builtin_bswap16(Read(src)));
+  return memory;
+}
+
+template <typename D, typename S>
+DEF_SEM(MOVBE32, D dst, const S src) {
+  WriteZExt(dst, __builtin_bswap32(Read(src)));
+  return memory;
+}
+
+
+#if 64 == ADDRESS_SIZE_BITS
+  template <typename D, typename S>
+  DEF_SEM(MOVBE64, D dst, const S src) {
+    Write(dst, __builtin_bswap64(Read(src)));
+    return memory;
+  }
+#endif 
+
+template <typename D, typename S>
 DEF_SEM(MOVQ, D dst, S src) {
   UWriteV64(dst, UExtractV64(UReadV64(src), 0));
   return memory;
@@ -143,6 +164,9 @@ DEF_ISEL(MOV_GPR8_IMMb_C6r0) = MOV<R8W, I8>;
 DEF_ISEL(MOV_MEMb_IMMb) = MOV<M8W, I8>;
 DEF_ISEL_RnW_In(MOV_GPRv_IMMz, MOV);
 DEF_ISEL_MnW_In(MOV_MEMv_IMMz, MOV);
+DEF_ISEL(MOVBE_GPRv_MEMv_16) = MOVBE16<R16W, M16>;
+DEF_ISEL(MOVBE_GPRv_MEMv_32) = MOVBE32<R32W, M32>;
+IF_64BIT(DEF_ISEL(MOVBE_GPRv_MEMv_64) = MOVBE64<R64W, M64>;)
 DEF_ISEL(MOV_GPR8_GPR8_88) = MOV<R8W, R8>;
 DEF_ISEL(MOV_MEMb_GPR8) = MOV<M8W, R8>;
 DEF_ISEL_MnW_Rn(MOV_MEMv_GPRv, MOV);
@@ -1071,8 +1095,13 @@ IF_64BIT(DEF_ISEL(MOVSX_GPRv_MEMw_64) = MOVSX<R64W, M16, int64_t>;)
 DEF_ISEL(MOVSX_GPRv_GPR16_32) = MOVSX<R32W, R16, int32_t>;
 IF_64BIT(DEF_ISEL(MOVSX_GPRv_GPR16_64) = MOVSX<R64W, R16, int64_t>;)
 
+DEF_ISEL(MOVSXD_GPRv_GPRz_16) = MOVSX<R32W, R16, int32_t>;
+DEF_ISEL(MOVSXD_GPRv_GPRz_32) = MOVSX<R32W, R32, int32_t>;
+
 IF_64BIT(DEF_ISEL(MOVSXD_GPRv_MEMd_32) = MOVSX<R64W, M32, int64_t>;)
 IF_64BIT(DEF_ISEL(MOVSXD_GPRv_GPR32_32) = MOVSX<R64W, R32, int64_t>;)
 
 IF_64BIT(DEF_ISEL(MOVSXD_GPRv_MEMd_64) = MOVSX<R64W, M32, int64_t>;)
 IF_64BIT(DEF_ISEL(MOVSXD_GPRv_GPR32_64) = MOVSX<R64W, R32, int64_t>;)
+IF_64BIT(DEF_ISEL(MOVSXD_GPRv_GPRz_64) = MOVSX<R64W, R32, int64_t>;)
+

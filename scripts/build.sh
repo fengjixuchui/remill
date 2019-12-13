@@ -36,9 +36,18 @@ function GetUbuntuOSVersion
   source /etc/lsb-release
 
   case "${DISTRIB_CODENAME}" in
+    disco)
+      # TODO(pag): Eventually make real packages for 19.04!
+      OS_VERSION=ubuntu1804
+      return 0
+    ;;
+    dingo)
+      # TODO(pag): Eventually make real packages for 19.04!
+      OS_VERSION=ubuntu1804
+      return 0
+    ;;
     cosmic)
       # TODO(pag): Eventually make real packages for 18.10!
-      OS_VERSION=ubuntu1810
       OS_VERSION=ubuntu1804
       return 0
     ;;
@@ -103,7 +112,7 @@ function DownloadCxxCommon
 
   # Make sure modification times are not in the future.
   find "${BUILD_DIR}/libraries" -type f -exec touch {} \;
-  
+
   return 0
 }
 
@@ -141,6 +150,14 @@ function DownloadLibraries
 {
   # macOS packages
   if [[ "${OSTYPE}" = "darwin"* ]]; then
+
+    # Compute an isysroot from the SDK root dir.
+    local sdk_root="${SDKROOT}"
+    if [[ "x${sdk_root}x" = "xx" ]]; then
+      sdk_root=$(xcrun -sdk macosx --show-sdk-path)
+    fi
+
+    BUILD_FLAGS="${BUILD_FLAGS} -DCMAKE_OSX_SYSROOT=${sdk_root}"
     OS_VERSION=osx
 
   # Linux packages
@@ -177,12 +194,12 @@ function Configure
   # Tell the remill CMakeLists.txt where the extracted libraries are. 
   export TRAILOFBITS_LIBRARIES="${BUILD_DIR}/libraries"
   export PATH="${TRAILOFBITS_LIBRARIES}/cmake/bin:${TRAILOFBITS_LIBRARIES}/llvm/bin:${PATH}"
-  
+
   if [[ "${USE_HOST_COMPILER}" = "1" ]] ; then
     if [[ "x${CC}x" = "xx" ]] ; then
       export CC=$(which cc)
     fi
-    
+
     if [[ "x${CXX}x" = "xx" ]] ; then
       export CXX=$(which c++)
     fi
@@ -268,6 +285,10 @@ function GetLLVMVersion
       LLVM_VERSION=llvm80
       return 0
     ;;
+    9.0)
+      LLVM_VERSION=llvm90
+      return 0
+    ;;
     *)
       # unknown option
       echo "[x] Unknown LLVM version ${1}."
@@ -317,7 +338,23 @@ function main
         echo "[+] Will supply additional arguments to cmake: ${BUILD_FLAGS}"
         shift
       ;;
-      
+
+      # tell McSema to build dyninst frontend as well
+      --dyninst-frontend)
+        GetOSVersion
+        if [[ $OS_VERSION != ubuntu* ]] ; then
+          echo "[+] Dyninst frontend is supported only on ubuntu, try at your own peril"
+          read -p "Continue? (Y/N): " confirm
+          case $confirm in
+            y|Y ) echo "Confirmed";;
+            n|N ) exit 1;;
+            * ) echo "Unknown option" && exit 1;;
+          esac
+        fi
+        BUILD_FLAGS="${BUILD_FLAGS} -DBUILD_MCSEMA_DYNINST_DISASS=1"
+        echo "[+] Will build dyninst frontend"
+      ;;
+
       --use-host-compiler)
         USE_HOST_COMPILER=1
         echo "[+] Forcing use of host compiler for build"

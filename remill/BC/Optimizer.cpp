@@ -66,12 +66,15 @@ void OptimizeModule(llvm::Module *module,
   builder.Inliner = llvm::createFunctionInliningPass(250);
   builder.LibraryInfo = TLI;  // Deleted by `llvm::~PassManagerBuilder`.
   builder.DisableUnrollLoops = false;  // Unroll loops!
-  builder.DisableUnitAtATime = false;
+  IF_LLVM_LT_900(builder.DisableUnitAtATime = false;)
   builder.RerollLoops = false;
   builder.SLPVectorize = guide.slp_vectorize;
   builder.LoopVectorize = guide.loop_vectorize;
-  IF_LLVM_GTE_36(builder.VerifyInput = guide.verify_input;)
-  IF_LLVM_GTE_36(builder.VerifyOutput = guide.verify_output;)
+  IF_LLVM_GTE_360(builder.VerifyInput = guide.verify_input;)
+  IF_LLVM_GTE_360(builder.VerifyOutput = guide.verify_output;)
+
+  // TODO(pag): Not sure when this became available.
+  IF_LLVM_GTE_800(builder.MergeFunctions = false;)
 
   builder.populateFunctionPassManager(func_manager);
   builder.populateModulePassManager(module_manager);
@@ -86,6 +89,48 @@ void OptimizeModule(llvm::Module *module,
   if (guide.eliminate_dead_stores) {
     RemoveDeadStores(module, bb_func, slots);
   }
+}
+
+// Optimize a normal module. This might not contain special functions
+// like `__remill_basic_block`.
+//
+// NOTE(pag): It is an error to specify `guide.eliminate_dead_stores` as
+//            `true`.
+void OptimizeBareModule(
+    llvm::Module *module, OptimizationGuide guide) {
+  CHECK(!guide.eliminate_dead_stores);
+  llvm::legacy::FunctionPassManager func_manager(module);
+  llvm::legacy::PassManager module_manager;
+
+  auto TLI = new llvm::TargetLibraryInfoImpl(
+      llvm::Triple(module->getTargetTriple()));
+
+  TLI->disableAllFunctions();  // `-fno-builtin`.
+
+  llvm::PassManagerBuilder builder;
+  builder.OptLevel = 3;
+  builder.SizeLevel = 0;
+  builder.Inliner = llvm::createFunctionInliningPass(250);
+  builder.LibraryInfo = TLI;  // Deleted by `llvm::~PassManagerBuilder`.
+  builder.DisableUnrollLoops = false;  // Unroll loops!
+  IF_LLVM_LT_900(builder.DisableUnitAtATime = false;)
+  builder.RerollLoops = false;
+  builder.SLPVectorize = guide.slp_vectorize;
+  builder.LoopVectorize = guide.loop_vectorize;
+  IF_LLVM_GTE_360(builder.VerifyInput = guide.verify_input;)
+  IF_LLVM_GTE_360(builder.VerifyOutput = guide.verify_output;)
+
+  // TODO(pag): Not sure when this became available.
+  IF_LLVM_GTE_800(builder.MergeFunctions = false;)
+
+  builder.populateFunctionPassManager(func_manager);
+  builder.populateModulePassManager(module_manager);
+  func_manager.doInitialization();
+  for (auto &func : *module) {
+    func_manager.run(func);
+  }
+  func_manager.doFinalization();
+  module_manager.run(*module);
 }
 
 }  // namespace remill

@@ -165,8 +165,15 @@ static bool IsNoOp(const xed_decoded_inst_t *xedd) {
 }
 
 static bool IsError(const xed_decoded_inst_t *xedd) {
-  auto iclass = xed_decoded_inst_get_iclass(xedd);
-  return XED_ICLASS_HLT == iclass || XED_ICLASS_UD2 == iclass;
+  switch (xed_decoded_inst_get_iclass(xedd)) {
+    case XED_ICLASS_HLT:
+    case XED_ICLASS_UD0:
+    case XED_ICLASS_UD1:
+    case XED_ICLASS_UD2:
+      return true;
+    default:
+      return false;
+  }
 }
 
 static bool IsInvalid(const xed_decoded_inst_t *xedd) {
@@ -351,12 +358,12 @@ static bool DecodeXED(xed_decoded_inst_t *xedd,
   if (XED_ERROR_NONE != err) {
     std::stringstream ss;
     for (auto b : inst_bytes) {
-      ss << std::hex << std::setw(2) << std::setfill('0')
-         << static_cast<unsigned>(b);
+      ss << ' ' << std::hex << std::setw(2) << std::setfill('0')
+         << (static_cast<unsigned>(b) & 0xFFu);
     }
     LOG(ERROR)
         << "Unable to decode instruction at " << std::hex << address
-        << " with bytes " << ss.str() << " and error: "
+        << " with bytes" << ss.str() << " and error: "
         << xed_error_enum_t2str(err) << std::dec;
     return false;
   }
@@ -571,6 +578,8 @@ static void DecodeRegister(Instruction &inst,
   op.reg = RegOp(reg);
   op.size = op.reg.size;
 
+  auto read_op = op;
+
   // Pass the register by reference.
   if (xed_operand_written(xedo)) {
     op.action = Operand::kActionWrite;
@@ -597,8 +606,8 @@ static void DecodeRegister(Instruction &inst,
   }
 
   if (xed_operand_read(xedo)) {
-    op.action = Operand::kActionRead;
-    inst.operands.push_back(op);
+    read_op.action = Operand::kActionRead;
+    inst.operands.push_back(read_op);
   }
 }
 
@@ -791,11 +800,17 @@ static void DecodeOperand(Instruction &inst,
   }
 }
 
-class X86Arch : public Arch {
+class X86Arch final : public Arch {
  public:
-  X86Arch(OSName os_name_, ArchName arch_name_);
+  X86Arch(llvm::LLVMContext &context_, OSName os_name_, ArchName arch_name_);
 
   virtual ~X86Arch(void);
+
+  // Returns the name of the stack pointer register.
+  const char *StackPointerRegisterName(void) const final;
+
+  // Returns the name of the program counter register.
+  const char *ProgramCounterRegisterName(void) const final;
 
   // Decode an instuction.
   bool DecodeInstruction(
@@ -829,8 +844,8 @@ class X86Arch : public Arch {
 };
 
 
-X86Arch::X86Arch(OSName os_name_, ArchName arch_name_)
-    : Arch(os_name_, arch_name_) {
+X86Arch::X86Arch(llvm::LLVMContext &context_, OSName os_name_, ArchName arch_name_)
+    : Arch(context_, os_name_, arch_name_) {
 
   static bool xed_is_initialized = false;
   if (!xed_is_initialized) {
@@ -1151,6 +1166,24 @@ bool X86Arch::DecodeInstruction(
   return true;
 }
 
+// Returns the name of the stack pointer register.
+const char *X86Arch::StackPointerRegisterName(void) const {
+  if (IsX86()) {
+    return "ESP";
+  } else {
+    return "RSP";
+  }
+}
+
+// Returns the name of the program counter register.
+const char *X86Arch::ProgramCounterRegisterName(void) const {
+  if (IsX86()) {
+    return "EIP";
+  } else {
+    return "RIP";
+  }
+}
+
 bool X86Arch::DecodeInstruction(
     uint64_t address,
     const std::string &inst_bytes,
@@ -1179,8 +1212,8 @@ bool X86Arch::LazyDecodeInstruction(
 
 // TODO(pag): We pretend that these are singletons, but they aren't really!
 const Arch *Arch::GetX86(
-    OSName os_name_, ArchName arch_name_) {
-  return new X86Arch(os_name_, arch_name_);
+    llvm::LLVMContext &context_, OSName os_name_, ArchName arch_name_) {
+  return new X86Arch(context_, os_name_, arch_name_);
 }
 
 }  // namespace remill

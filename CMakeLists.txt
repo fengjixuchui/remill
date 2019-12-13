@@ -23,8 +23,10 @@ cmake_minimum_required(VERSION 3.2)
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/settings.cmake")
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/utils.cmake")
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/BCCompiler.cmake")
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ccache.cmake")
 include(CTest)
 
+configureCcache()
 FindAndSelectClangCompiler()
 
 enable_language(C CXX ASM)
@@ -106,16 +108,17 @@ add_library(${PROJECT_NAME} STATIC
   remill/Arch/AArch64/Decode.cpp
   remill/Arch/AArch64/Extract.cpp
   remill/Arch/X86/Arch.cpp
-  
+
   remill/Arch/Arch.cpp
   remill/Arch/Instruction.cpp
   remill/Arch/Name.cpp
 
+  remill/BC/Annotate.cpp
+  remill/BC/DeadStoreEliminator.cpp
   remill/BC/IntrinsicTable.cpp
   remill/BC/Lifter.cpp
-  remill/BC/Util.cpp
-  remill/BC/DeadStoreEliminator.cpp
   remill/BC/Optimizer.cpp
+  remill/BC/Util.cpp
 
   remill/OS/Compat.cpp
   remill/OS/FileSystem.cpp
@@ -272,6 +275,7 @@ install(FILES
 
 install(FILES 
   "${CMAKE_CURRENT_SOURCE_DIR}/remill/BC/ABI.h"
+  "${CMAKE_CURRENT_SOURCE_DIR}/remill/BC/Annotate.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/remill/BC/IntrinsicTable.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/remill/BC/Lifter.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/remill/BC/Optimizer.h"

@@ -6,14 +6,13 @@
 
 Remill is a static binary translator that translates machine code instructions into [LLVM bitcode](http://llvm.org/docs/LangRef.html). It translates x86 and amd64 machine code (including AVX and AVX512) into LLVM bitcode. AArch64 support is underway.
 
-Remill focuses on accurately lifting instructions. It is meant to be used as a library for other tools, e.g. [McSema](https://github.com/trailofbits/mcsema).
+Remill focuses on accurately lifting instructions. It is meant to be used as a library for other tools, e.g. [McSema](https://github.com/lifting-bits/mcsema).
 
 ## Build Status
 
 |       | master |
 | ----- | ------ |
-| Linux | [![Build Status](https://travis-ci-job-status.herokuapp.com/badge/trailofbits/remill/master/linux/)](https://travis-ci.org/trailofbits/remill) |
-| macOS | [![Build Status](https://travis-ci-job-status.herokuapp.com/badge/trailofbits/remill/master/osx/)](https://travis-ci.org/trailofbits/remill) |
+| Linux | [![Build Status](https://travis-ci.org/lifting-bits/remill.svg?branch=master)](https://travis-ci.org/lifting-bits/remill) |
 
 ## Additional Documentation
  
@@ -46,6 +45,7 @@ Most of Remill's dependencies can be provided by the [cxx-common](https://github
 | [Intel XED](https://software.intel.com/en-us/articles/xed-x86-encoder-decoder-software-library) | Latest |
 | [Python](https://www.python.org/) | 2.7 | 
 | Unzip | Latest |
+| [ccache](https://ccache.dev/) | Latest |
 
 ## Getting and Building the Code
 
@@ -65,7 +65,8 @@ sudo apt-get install \
      build-essential \
      libtinfo-dev \
      lsb-release \
-     zlib1g-dev
+     zlib1g-dev \
+     ccache
 
 # Ubuntu 14.04, 16.04
 sudo apt-get install realpath
@@ -74,7 +75,7 @@ sudo apt-get install realpath
 Next, clone the repository. This will clone the code into the `remill` directory.
 
 ```shell
-git clone git@github.com:trailofbits/remill.git
+git clone https://github.com/lifting-bits/remill.git
 ```
 
 Next, we build Remill. This script will create another directory, `remill-build`,
@@ -86,7 +87,7 @@ by Remill will be built in the `remill-build` directory.
 ```
 
 Next, we can install Remill. Remill itself is a library, and so there is no real way
-to try it. However, you can head on over to the [McSema](https://github.com/trailofbits/mcsema) repository, which uses Remill for lifting instructions.
+to try it. However, you can head on over to the [McSema](https://github.com/lifting-bits/mcsema) repository, which uses Remill for lifting instructions.
 
 ```shell
 cd ./remill-build
