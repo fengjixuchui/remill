@@ -36,15 +36,21 @@ const std::string AbiLibraries::metadata_value = ExternalFunction::metadata_valu
 const std::string CFGExternal::metadata_value = ExternalFunction::metadata_value + "." +
                                                 "cfgexternal";
 
+const std::string ExtWrapper::metadata_value = ExternalFunction::metadata_value + "." +
+                                               "extwrapper";
+
 
 const std::string Helper::metadata_value = BaseFunction::metadata_value + "." + "helper";
 
 
 const std::string RemillHelper::metadata_value = Helper::metadata_value + "." +
-                                                  "remill";
+                                                 "remill";
 
 const std::string McSemaHelper::metadata_value = Helper::metadata_value + "." +
                                                  "mcsema";
+
+const std::string Semantics::metadata_value = Helper::metadata_value + "." +
+                                              "semantics";
 
 #if LLVM_VERSION_NUMBER >= LLVM_VERSION(4, 0)
 

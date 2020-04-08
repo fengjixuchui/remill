@@ -40,6 +40,7 @@
 # endif
 #endif
 
+#include <llvm/ADT/Triple.h>
 #include <string>
 
 namespace remill {
@@ -55,11 +56,10 @@ enum ArchName : uint32_t {
   kArchAMD64_AVX,
   kArchAMD64_AVX512,
 
-  kArchMips32,
-  kArchMips64,
-
   kArchAArch64LittleEndian
 };
+
+ArchName GetArchName(const llvm::Triple &triple);
 
 // Convert the string name of an architecture into a canonical form.
 ArchName GetArchName(const std::string &arch_name);
