@@ -12,34 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# mcsema needs to be manually cloned into this repo.
-if(EXISTS ${CMAKE_SOURCE_DIR}/tools/mcsema)
-  add_subdirectory(mcsema)
-endif()
-
 if(EXISTS ${CMAKE_SOURCE_DIR}/tools/lift)
   add_subdirectory(lift)
 endif()
-
-if(EXISTS ${CMAKE_SOURCE_DIR}/tools/anvill)
-    add_subdirectory(anvill)
-endif()
-
-if(EXISTS ${CMAKE_SOURCE_DIR}/tools/fcd)
-  add_subdirectory(fcd)
-endif()
-
-if (NOT WIN32)
-  if (EXISTS ${CMAKE_SOURCE_DIR}/tools/klee)
-      add_subdirectory(klee)
-  endif ()
-endif ()
-
-if (NOT WIN32)
-  if (307 LESS ${REMILL_LLVM_VERSION_NUMBER})
-      if (EXISTS ${CMAKE_SOURCE_DIR}/tools/vmill)
-          add_subdirectory(vmill)
-      endif ()
-  endif ()
-endif ()
 
