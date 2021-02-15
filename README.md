@@ -4,7 +4,7 @@
      <img src="docs/images/remill_logo.png" />
 </p>
 
-Remill is a static binary translator that translates machine code instructions into [LLVM bitcode](http://llvm.org/docs/LangRef.html). It translates AArch64 (64-bit ARMv8), x86 and amd64 machine code (including AVX and AVX512) into LLVM bitcode. AArch32 (32-bit ARMv8 / ARMv7) support is underway.
+Remill is a static binary translator that translates machine code instructions into [LLVM bitcode](http://llvm.org/docs/LangRef.html). It translates AArch64 (64-bit ARMv8), SPARC32 (SPARCv8), SPARC64 (SPARCv9), x86 and amd64 machine code (including AVX and AVX512) into LLVM bitcode. AArch32 (32-bit ARMv8 / ARMv7) support is underway.
 
 Remill focuses on accurately lifting instructions. It is meant to be used as a library for other tools, e.g. [McSema](https://github.com/lifting-bits/mcsema).
 
@@ -36,7 +36,7 @@ Most of Remill's dependencies can be provided by the [cxx-common](https://github
 | Name | Version |
 | ---- | ------- |
 | [Git](https://git-scm.com/) | Latest |
-| [CMake](https://cmake.org/) | 3.2+ |
+| [CMake](https://cmake.org/) | 3.14+ |
 | [Google Flags](https://github.com/google/glog) | Latest |
 | [Google Log](https://github.com/google/glog) | Latest |
 | [Google Test](https://github.com/google/googletest) | Latest |
@@ -51,7 +51,7 @@ Most of Remill's dependencies can be provided by the [cxx-common](https://github
 
 ### Docker Build
 
-Remill now comes with a Dockerfile for easier testing. This Dockerfile references the [cxx-common](https://github.com/trailofbits/cxx-common) container to have all pre-requisite libraries available. 
+Remill now comes with a Dockerfile for easier testing. This Dockerfile references the [cxx-common](https://github.com/trailofbits/cxx-common) container to have all pre-requisite libraries available.
 
 The Dockerfile allows for quick builds of multiple supported LLVM, architecture, and Linux configurations.
 
@@ -91,6 +91,7 @@ docker run --rm -it remill:llvm800-ubuntu18.04-amd64 \
 First, update aptitude and get install the baseline dependencies.
 
 ```shell
+sudo dpkg --add-architecture i386
 sudo apt-get update
 sudo apt-get upgrade
 
@@ -103,7 +104,10 @@ sudo apt-get install \
      libtinfo-dev \
      lsb-release \
      zlib1g-dev \
-     ccache
+     ccache \
+     libc6-dev:i386 \
+     'libstdc++-*-dev:i386' \
+     g++-multilib
 
 # Ubuntu 14.04, 16.04
 sudo apt-get install realpath
@@ -138,3 +142,43 @@ cd ./remill-build
 make test_dependencies
 make test
 ```
+
+### Full Source Builds
+
+Sometimes, you want to build everything from source, including the [cxx-common](https://github.com/trailofbits/cxx-common) libraries remill depends on. To build against a custom cxx-common location, you can use the following `cmake` invocation:
+
+```sh
+mkdir build
+cd build
+cmake  \
+  -DCMAKE_INSTALL_PREFIX="<path where remill will install>" \
+  -DVCPKG_ROOT="<path to cxx-common directory>/vcpkg"  \
+  -G Ninja  \
+  ..
+cmake --build .
+cmake --build . --target install
+```
+
+The output may produce some CMake warnings about policy CMP0003. These warnings are safe to ignore.
+
+### Common Build Issues
+
+If you see errors similar to the following:
+
+```
+fatal error: 'bits/c++config.h' file not found
+```
+
+Then you need to install 32-bit libstdc++ headers and libraries. On a Debian/Ubuntu based distribution, You would want to do something like this:
+
+```sh
+sudo dpkg --add-architecture i386
+sudo apt-get update
+sudo apt-get install libc6-dev:i386 libstdc++-10-dev:i386 g++-multilib
+```
+
+This error happens because the SPARC32 runtime semantics (the bitcode library which lives in `<install directory>/share/remill/<version>/semantics/sparc32.bc`) are built as 32-bit code, but 32-bit development libraries are not installed by default.
+
+A similar situation occurs when building remill on arm64 Linux. In that case, you want to follow a similar workflow, except the architecture used in `dpkg` and `apt-get` commands  would be `armhf` instead of `i386`.
+
+Another alternative is to disable SPARC32 runtime semantics. To do that, use the `-DREMILL_BUILD_SPARC32_RUNTIME=False` option when invoking `cmake`.
